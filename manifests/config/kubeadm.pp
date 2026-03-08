@@ -284,6 +284,9 @@ class kubernetes::config::kubeadm (
   String $conntrack_tcp_wait_timeout = $kubernetes::conntrack_tcp_wait_timeout,
   String $conntrack_tcp_stablished_timeout = $kubernetes::conntrack_tcp_stablished_timeout,
   Hash[String[1], Boolean] $feature_gates = $kubernetes::feature_gates,
+  Optional[Hash] $apiserver_resources = $kubernetes::apiserver_resources,
+  Optional[Hash] $controllermanager_resources = $kubernetes::controllermanager_resources,
+  Optional[Hash] $scheduler_resources = $kubernetes::scheduler_resources,
 ) {
   if !($proxy_mode in ['', 'userspace', 'iptables', 'ipvs', 'kernelspace']) {
     fail('Invalid kube-proxy mode! Must be one of "", userspace, iptables, ipvs, kernelspace.')
@@ -404,5 +407,77 @@ class kubernetes::config::kubeadm (
     ensure  => file,
     content => template("kubernetes/${config_version}/config_kubeadm.yaml.erb"),
     mode    => '0600',
+  }
+
+  # Kubeadm strategic merge patches for control plane static pods.
+  # Allows setting explicit resource requests/limits to avoid inheriting
+  # restrictive defaults from namespace LimitRange objects.
+  $patches_dir = '/etc/kubernetes/patches'
+
+  file { $patches_dir:
+    ensure => directory,
+    owner  => 'root',
+    group  => 'root',
+    mode   => '0755',
+  }
+
+  if $apiserver_resources {
+    file { "${patches_dir}/kube-apiserver+strategic.yaml":
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0644',
+      content => stdlib::to_yaml({
+        'apiVersion' => 'v1',
+        'kind'       => 'Pod',
+        'metadata'   => { 'name' => 'kube-apiserver' },
+        'spec'       => {
+          'containers' => [{
+            'name'      => 'kube-apiserver',
+            'resources' => $apiserver_resources,
+          }],
+        },
+      }),
+    }
+  }
+
+  if $controllermanager_resources {
+    file { "${patches_dir}/kube-controller-manager+strategic.yaml":
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0644',
+      content => stdlib::to_yaml({
+        'apiVersion' => 'v1',
+        'kind'       => 'Pod',
+        'metadata'   => { 'name' => 'kube-controller-manager' },
+        'spec'       => {
+          'containers' => [{
+            'name'      => 'kube-controller-manager',
+            'resources' => $controllermanager_resources,
+          }],
+        },
+      }),
+    }
+  }
+
+  if $scheduler_resources {
+    file { "${patches_dir}/kube-scheduler+strategic.yaml":
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0644',
+      content => stdlib::to_yaml({
+        'apiVersion' => 'v1',
+        'kind'       => 'Pod',
+        'metadata'   => { 'name' => 'kube-scheduler' },
+        'spec'       => {
+          'containers' => [{
+            'name'      => 'kube-scheduler',
+            'resources' => $scheduler_resources,
+          }],
+        },
+      }),
+    }
   }
 }
