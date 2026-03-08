@@ -63,7 +63,7 @@ class kubernetes::repos (
     case $facts['os']['family'] {
       'Debian': {
         $codename = fact('os.distro.codename')
-        apt::keyring { 'kubernetes-keyring':
+        apt::keyring { 'kubernetes-keyring.gpg':
           source => pick($kubernetes_key_source, 'https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key'),
           dir    => '/etc/apt/keyrings',
         }
