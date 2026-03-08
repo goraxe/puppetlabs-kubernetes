@@ -74,18 +74,6 @@ oom_score = 0
       no_pivot = false
       disable_snapshot_annotations = true
       discard_unpacked_layers = false
-      [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-        runtime_type = ""
-        runtime_engine = ""
-        runtime_root = ""
-        privileged_without_host_devices = false
-        base_runtime_spec = ""
-      [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-        runtime_type = ""
-        runtime_engine = ""
-        runtime_root = ""
-        privileged_without_host_devices = false
-        base_runtime_spec = ""
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
           runtime_type = "io.containerd.runc.v2"
@@ -112,56 +100,6 @@ oom_score = 0
       conf_dir = "/etc/cni/net.d"
       max_conf_num = 1
       conf_template = ""
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-      <% $containerd_plugins_registry.map |Any $registry, Any $sections| { -%>
-      <% if $sections['mirrors'] and !$sections['mirrors'].empty { -%>
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."<%= $registry %>"]
-        <% if $sections['mirrors']['endpoint'] { -%>
-          endpoint = ["<%= $sections['mirrors']['endpoint'] %>"]
-        <% } -%>
-      <% } -%>
-      <% } -%>
-      [plugins."io.containerd.grpc.v1.cri".registry.configs]
-      <% $containerd_plugins_registry.map |Any $registry, Any $sections| { -%>
-      <% if $sections['auth'] and !$sections['auth'].empty { -%>
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."<%= $registry %>".auth]
-        <% if $sections['auth']['username'] { -%>
-          username = "<%= $sections['auth']['username'] %>"
-        <% } -%>
-        <% if $sections['auth']['password'] { -%>
-          password = "<%= $sections['auth']['password'] %>"
-        <% } -%>
-        <% if $sections['auth']['auth'] { -%>
-          auth = "<%= $sections['auth']['auth'] %>"
-        <% } -%>
-        <% if $sections['auth']['identitytoken'] { -%>
-          identitytoken = "<%= $sections['auth']['identitytoken'] %>"
-        <% } -%>
-      <% } -%>
-      <% } -%>
-      <% $containerd_plugins_registry.map |Any $registry, Any $sections| { -%>
-      <% if $sections['tls'] and !$sections['tls'].empty { -%>
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."<%= $registry %>".tls]
-        <% if $sections['tls']['ca_file'] { -%>
-          ca_file = "<%= $sections['tls']['ca_file'] %>"
-        <% } -%>
-        <% if $sections['tls']['cert_file'] { -%>
-          cert_file = "<%= $sections['tls']['cert_file'] %>"
-        <% } -%>
-        <% if $sections['tls']['key_file'] { -%>
-          key_file = "<%= $sections['tls']['key_file'] %>"
-        <% } -%>
-        <% if $sections['tls']['insecure_skip_verify'] { -%>
-          insecure_skip_verify = <%= $sections['tls']['insecure_skip_verify'] %>
-        <% } -%>
-      <% } -%>
-      <% } -%>
-    [plugins."io.containerd.grpc.v1.cri".image_decryption]
-      key_model = ""
-    [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
-      tls_cert_file = ""
-      tls_key_file = ""
   [plugins."io.containerd.internal.v1.opt"]
     path = "/opt/containerd"
   [plugins."io.containerd.internal.v1.restart"]
@@ -170,12 +108,6 @@ oom_score = 0
     content_sharing_policy = "shared"
   [plugins."io.containerd.monitor.v1.cgroups"]
     no_prometheus = false
-  [plugins."io.containerd.runtime.v1.linux"]
-    shim = "containerd-shim"
-    runtime = "runc"
-    runtime_root = ""
-    no_shim = false
-    shim_debug = false
   [plugins."io.containerd.runtime.v2.task"]
     platforms = ["linux/amd64"]
   [plugins."io.containerd.service.v1.diff-service"]
