@@ -63,14 +63,16 @@ class kubernetes::repos (
     case $facts['os']['family'] {
       'Debian': {
         $codename = fact('os.distro.codename')
+        apt::keyring { 'kubernetes-keyring':
+          source => pick($kubernetes_key_source, 'https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key'),
+          dir    => '/etc/apt/keyrings',
+        }
+
         apt::source { 'kubernetes':
           location => pick($kubernetes_apt_location,'https://apt.kubernetes.io'),
           repos    => pick($kubernetes_apt_repos,'main'),
           release  => pick($kubernetes_apt_release,'kubernetes-xenial'),
-          key      => {
-            'id'     => pick($kubernetes_key_id,'A362B822F6DEDC652817EA46B53DC80D13EDEF05'),
-            'source' => pick($kubernetes_key_source,'https://packages.cloud.google.com/apt/doc/apt-key.gpg'),
-          },
+          keyring  => '/etc/apt/keyrings/kubernetes-keyring.gpg',
         }
 
         if ($container_runtime == 'docker' and $manage_docker == true) or
