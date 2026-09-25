@@ -68,8 +68,8 @@
 #   The name of the etcd archive. Defaults to etcd-v${etcd_version}-linux-amd64.tar.gz
 # @param etcd_archive_checksum
 #   A checksum (sha-256) of the archive. If the checksum does not match, a reinstall will be executed and the related service will be
-#   restarted. If no checksum is defined, the puppet module checks for the extracted files of the archive and downloads and extracts
-#   the files if they do not exist.
+#   restarted. The verified archive is kept in tmp_directory so later runs are idempotent. If no checksum is defined, the puppet
+#   module checks for the extracted files of the archive and downloads and extracts the files if they do not exist.
 # @param etcd_version
 #   The version of etcd that you would like to use. Defaults to 3.2.18
 # @param etcd_source
@@ -479,11 +479,15 @@ class kubernetes::packages (
   if $controller and $manage_etcd {
     if $etcd_install_method == 'wget' {
       if $etcd_archive_checksum and $etcd_archive_checksum =~ /.+/ {
+        # The verified archive is the idempotency marker (creates is unset), so
+        # keep it; cleaning it up would re-download and restart etcd every run.
         $etcd_archive_checksum_verify = true
         $etcd_archive_creates = undef
+        $etcd_archive_cleanup = false
       } else {
         $etcd_archive_checksum_verify = false
         $etcd_archive_creates = ['/usr/local/bin/etcd', '/usr/local/bin/etcdctl']
+        $etcd_archive_cleanup = true
       }
       archive { $etcd_archive:
         path            => "${tmp_directory}/${etcd_archive}",
@@ -494,7 +498,7 @@ class kubernetes::packages (
         extract         => true,
         extract_command => 'tar xfz %s --strip-components=1 -C /usr/local/bin/',
         extract_path    => '/usr/local/bin',
-        cleanup         => true,
+        cleanup         => $etcd_archive_cleanup,
         creates         => $etcd_archive_creates,
         notify          => Service['etcd'],
         require         => File[$tmp_directory],
