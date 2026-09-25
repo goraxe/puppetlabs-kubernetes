@@ -33,6 +33,7 @@ describe 'kubernetes::kubeadm_init', type: :define do
 
     it { is_expected.to compile.with_all_deps }
     it { is_expected.to contain_exec('kubeadm init').with_command("kubeadm init --config '/etc/kubernetes/config.yaml'") }
+    it { is_expected.to contain_exec('kubeadm init').with_unless('kubectl get node kube-control-plane') }
     it { is_expected.to contain_kubernetes__wait_for_default_sa('default') }
   end
 
