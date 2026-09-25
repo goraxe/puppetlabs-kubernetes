@@ -80,4 +80,12 @@ describe 'kubernetes::kubeadm_join', type: :define do
     it { is_expected.to compile.with_all_deps }
     it { is_expected.to contain_exec('kubeadm join').with_command("kubeadm join --discovery-file '/etc/kubernetes/admin.conf'") }
   end
+
+  # Puppet runs `unless` without a shell, so a `| grep` pipe becomes kubectl
+  # arguments and the guard always fails (join re-runs every agent run).
+  context 'with default params' do
+    it 'guards the join on the exact Node object existing' do
+      is_expected.to contain_exec('kubeadm join').with_unless('kubectl get node kube-node')
+    end
+  end
 end

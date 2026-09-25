@@ -87,6 +87,9 @@ define kubernetes::kubeadm_join (
     path        => $path,
     logoutput   => true,
     timeout     => 0,
-    unless      => "kubectl get nodes | grep ${node_name}",
+    # No shell here: a `| grep` pipe would become kubectl arguments and the
+    # guard would always fail. An exact Node lookup needs no shell, and a node
+    # may read its own Node object under the node authorizer.
+    unless      => "kubectl get node ${node_name}",
   }
 }
