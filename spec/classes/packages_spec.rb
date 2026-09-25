@@ -110,6 +110,34 @@ describe 'kubernetes::packages', type: :class do
       puts json_data
       expect { JSON.parse(json_data) }.not_to raise_error
     end
+
+    context 'without etcd_archive_checksum' do
+      let(:params) do
+        super().merge('etcd_archive_checksum' => '')
+      end
+
+      it 'installs etcd from the archive, guarded by the extracted binaries' do
+        is_expected.to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
+          .with_checksum_verify(false)
+          .with_cleanup(true)
+          .with_creates(['/usr/local/bin/etcd', '/usr/local/bin/etcdctl'])
+      end
+    end
+
+    context 'with etcd_archive_checksum set' do
+      let(:params) do
+        super().merge('etcd_archive_checksum' => 'd' * 64)
+      end
+
+      # The archive is the only idempotency marker when verifying a checksum
+      # (creates is unset), so it must survive extraction; otherwise every run
+      # re-downloads, re-extracts and restarts etcd.
+      it 'keeps the verified archive instead of cleaning it up' do
+        is_expected.to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
+          .with_checksum_verify(true)
+          .with_cleanup(false)
+      end
+    end
   end
 
   context 'with osfamily => RedHat and container_runtime => Docker and manage_docker => true and manage_etcd => true and etcd_install_method => package' do
