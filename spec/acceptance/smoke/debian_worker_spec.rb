@@ -97,7 +97,9 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'runs containerd' do
-    run_shell('systemctl status containerd --no-pager; journalctl -u containerd --no-pager | tail -40; systemctl start containerd; systemctl status containerd --no-pager', expect_failures: true) do |r|
+    diag = ['systemctl status containerd --no-pager', 'journalctl -u containerd --no-pager | tail -40',
+            'systemctl start containerd', 'systemctl status containerd --no-pager'].join('; ')
+    run_shell(diag, expect_failures: true) do |r|
       puts r.stdout
     end
     run_shell('systemctl is-active containerd') do |r|
