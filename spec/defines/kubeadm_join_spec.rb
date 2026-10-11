@@ -85,7 +85,7 @@ describe 'kubernetes::kubeadm_join', type: :define do
   # arguments and the guard always fails (join re-runs every agent run).
   context 'with default params' do
     it 'guards the join on the exact Node object existing' do
-      is_expected.to contain_exec('kubeadm join').with_unless('kubectl get node kube-node')
+      expect(subject).to contain_exec('kubeadm join').with_unless('kubectl get node kube-node')
     end
   end
 end

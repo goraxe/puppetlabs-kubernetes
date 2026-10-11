@@ -217,6 +217,20 @@
 #  Example:
 #   {'RootlessControlPlane' => true}
 #   Default: undefined, no feature gates
+# @param apiserver_resources
+#   Resources (requests/limits) patched into the kube-apiserver container by kubeadm.
+#   Default: undef, no resources patch
+# @param controllermanager_resources
+#   Resources (requests/limits) patched into the kube-controller-manager container by kubeadm.
+#   Default: undef, no resources patch
+# @param scheduler_resources
+#   Resources (requests/limits) patched into the kube-scheduler container by kubeadm.
+#   Default: undef, no resources patch
+# @param controlplane_bind_address
+#   This node's address for kube-controller-manager and kube-scheduler. When set, kubeadm
+#   patches append --bind-address and point the startup/liveness/readiness probes at it,
+#   so a kubeadm upgrade (which renders them from the cluster-wide ConfigMap) keeps them.
+#   Default: undef, kubeadm's 127.0.0.1
 #
 class kubernetes::config::kubeadm (
   String $config_file = $kubernetes::config_file,
@@ -429,15 +443,15 @@ class kubernetes::config::kubeadm (
       group   => 'root',
       mode    => '0644',
       content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-apiserver' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-apiserver',
-            'resources' => $apiserver_resources,
-          }],
-        },
+          'apiVersion' => 'v1',
+          'kind'       => 'Pod',
+          'metadata'   => { 'name' => 'kube-apiserver' },
+          'spec'       => {
+            'containers' => [{
+                'name'      => 'kube-apiserver',
+                'resources' => $apiserver_resources,
+            }],
+          },
       }),
     }
   }
@@ -477,12 +491,12 @@ class kubernetes::config::kubeadm (
         group   => 'root',
         mode    => '0644',
         content => stdlib::to_yaml({
-          'apiVersion' => 'v1',
-          'kind'       => 'Pod',
-          'metadata'   => { 'name' => $target },
-          'spec'       => {
-            'containers' => [{ 'name' => $target } + $resources_patch + $probe_patch],
-          },
+            'apiVersion' => 'v1',
+            'kind'       => 'Pod',
+            'metadata'   => { 'name' => $target },
+            'spec'       => {
+              'containers' => [{ 'name' => $target } + $resources_patch + $probe_patch],
+            },
         }),
       }
     }
@@ -494,9 +508,9 @@ class kubernetes::config::kubeadm (
         group   => 'root',
         mode    => '0644',
         content => stdlib::to_json_pretty([{
-          'op'    => 'add',
-          'path'  => '/spec/containers/0/command/-',
-          'value' => "--bind-address=${controlplane_bind_address}",
+              'op'    => 'add',
+              'path'  => '/spec/containers/0/command/-',
+              'value' => "--bind-address=${controlplane_bind_address}",
         }]),
       }
 

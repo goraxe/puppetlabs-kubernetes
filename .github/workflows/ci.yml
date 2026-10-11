@@ -12,7 +12,12 @@ jobs:
     uses: "puppetlabs/cat-github-actions/.github/workflows/module_ci.yml@main"
     secrets: "inherit"
 
+  # Manual only. The acceptance run provisions centos-7 on an ubuntu-20.04
+  # runner (retired, so the job never starts) and tests distros this fork does
+  # not run. puppet-control-repo's catalog specs are the integration test here;
+  # re-point this at Debian 12/13 runners before enabling it on pull requests.
   Integration:
+    if: "github.event_name == 'workflow_dispatch'"
     needs: "Spec"
     runs-on: ubuntu-20.04
     strategy:

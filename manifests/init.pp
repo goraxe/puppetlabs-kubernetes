@@ -558,6 +558,18 @@
 #   {'RootlessControlPlane' => true}
 #   Default: undefined, no feature gates
 #
+# [*apiserver_resources*]
+#   Resources (requests/limits) patched into the kube-apiserver container by kubeadm.
+#   Default: undef, no resources patch
+#
+# [*controllermanager_resources*]
+#   Resources (requests/limits) patched into the kube-controller-manager container by kubeadm.
+#   Default: undef, no resources patch
+#
+# [*scheduler_resources*]
+#   Resources (requests/limits) patched into the kube-scheduler container by kubeadm.
+#   Default: undef, no resources patch
+#
 # [*http_proxy*]
 #   Configure the HTTP_PROXY environment variable
 #   Defaults to undef
