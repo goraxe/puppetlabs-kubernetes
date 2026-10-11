@@ -77,14 +77,35 @@ class kubernetes::repos (
 
         if ($container_runtime == 'docker' and $manage_docker == true) or
         ($container_runtime == 'cri_containerd' and $containerd_install_method == 'package') {
-          apt::source { 'docker':
-            location => pick($docker_apt_location,'https://download.docker.com/linux/ubuntu/'),
-            repos    => pick($docker_apt_repos,'stable'),
-            release  => pick($docker_apt_release,$codename),
-            key      => {
-              'id'     => pick($docker_key_id,'9DC858229FC7DD38854AE2D88D81803C0EBFCD88'),
-              'source' => pick($docker_key_source,'https://download.docker.com/linux/ubuntu/gpg'),
-            },
+          # Debian 13 (apt 3.0) has no apt-key. A source declared with a key `id`
+          # makes the apt module use apt::key, whose apt_key provider needs
+          # that command, so the catalog fails. There the repo is signed with a
+          # keyring file instead, as the Kubernetes repo above already is. Older
+          # releases keep the apt::key path, so their catalogs do not change.
+          # (docker_key_id is only used by that older path.)
+          if $facts['os']['name'] == 'Debian' and versioncmp($facts['os']['release']['major'], '13') >= 0 {
+            apt::keyring { 'docker.asc':
+              source => pick($docker_key_source,'https://download.docker.com/linux/debian/gpg'),
+              dir    => '/etc/apt/keyrings',
+            }
+
+            apt::source { 'docker':
+              location => pick($docker_apt_location,'https://download.docker.com/linux/ubuntu/'),
+              repos    => pick($docker_apt_repos,'stable'),
+              release  => pick($docker_apt_release,$codename),
+              keyring  => '/etc/apt/keyrings/docker.asc',
+              require  => Apt::Keyring['docker.asc'],
+            }
+          } else {
+            apt::source { 'docker':
+              location => pick($docker_apt_location,'https://download.docker.com/linux/ubuntu/'),
+              repos    => pick($docker_apt_repos,'stable'),
+              release  => pick($docker_apt_release,$codename),
+              key      => {
+                'id'     => pick($docker_key_id,'9DC858229FC7DD38854AE2D88D81803C0EBFCD88'),
+                'source' => pick($docker_key_source,'https://download.docker.com/linux/ubuntu/gpg'),
+              },
+            }
           }
         }
       }

@@ -211,4 +211,75 @@ describe 'kubernetes::repos', type: :class do
     it { is_expected.to contain_yumrepo('docker') }
     it { is_expected.to contain_yumrepo('kubernetes') }
   end
+
+  # Debian 13 has no apt-key (apt 3.0): the Docker repo is signed with a keyring
+  # file there. Debian 12 keeps the apt::key path, so its catalog is unchanged.
+  [
+    { release: '13', codename: 'trixie' },
+    { release: '12', codename: 'bookworm' },
+  ].each do |debian|
+    context "with Debian #{debian[:release]} and container_runtime => cri_containerd and containerd_install_method => package" do
+      let(:facts) do
+        {
+          osfamily: 'Debian', # needed to run dependent tests from fixtures puppetlabs-apt
+          kernel: 'Linux',
+          os: {
+            family: 'Debian',
+            name: 'Debian',
+            release: {
+              full: "#{debian[:release]}.1",
+              major: debian[:release]
+            },
+            distro: {
+              codename: debian[:codename]
+            }
+          }
+        }
+      end
+      let(:params) do
+        {
+          'container_runtime' => 'cri_containerd',
+          'kubernetes_apt_location' => 'https://pkgs.k8s.io/core:/stable:/v1.35/deb/',
+          'kubernetes_apt_release' => '/',
+          'kubernetes_apt_repos' => 'main',
+          'kubernetes_key_id' => '54A647F9048D5688D7DA2ABE6A030B21BA07F4FB',
+          'kubernetes_key_source' => 'https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key',
+          'kubernetes_yum_baseurl' => 'https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64',
+          'kubernetes_yum_gpgkey' => 'https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg',
+          'docker_apt_location' => 'https://download.docker.com/linux/debian/',
+          'docker_apt_release' => debian[:codename],
+          'docker_apt_repos' => 'stable',
+          'docker_yum_baseurl' => 'https://download.docker.com/linux/centos/7/x86_64/stable',
+          'docker_yum_gpgkey' => 'https://download.docker.com/linux/centos/gpg',
+          'docker_key_id' => '9DC858229FC7DD38854AE2D88D81803C0EBFCD88',
+          'docker_key_source' => 'https://download.docker.com/linux/debian/gpg',
+          'containerd_install_method' => 'package',
+          'create_repos' => true,
+          'manage_docker' => true
+        }
+      end
+
+      it { is_expected.to contain_apt__keyring('kubernetes-keyring.asc') }
+      it { is_expected.to contain_apt__source('docker').with(ensure: 'present', release: debian[:codename]) }
+
+      if debian[:release] == '13'
+        it 'signs the Docker repo with a keyring file' do
+          is_expected.to contain_apt__keyring('docker.asc')
+            .with(dir: '/etc/apt/keyrings', source: 'https://download.docker.com/linux/debian/gpg')
+          is_expected.to contain_apt__source('docker')
+            .with_keyring('/etc/apt/keyrings/docker.asc')
+            .without_key
+            .that_requires('Apt::Keyring[docker.asc]')
+        end
+      else
+        it 'keeps the apt::key path' do
+          is_expected.to contain_apt__source('docker').with_key(
+            'id' => '9DC858229FC7DD38854AE2D88D81803C0EBFCD88',
+            'source' => 'https://download.docker.com/linux/debian/gpg',
+          ).without_keyring
+          is_expected.not_to contain_apt__keyring('docker.asc')
+        end
+      end
+    end
+  end
 end
