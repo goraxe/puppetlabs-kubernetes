@@ -12,11 +12,12 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   pp = <<~MANIFEST
     class { 'kubernetes':
       worker                     => true,
+      api_server_count           => 1,
       kubernetes_version         => '1.33.0',
       kubernetes_package_version => 'present',
       controller_address         => '192.0.2.10:6443',
       token                      => 'abcdef.0123456789abcdef',
-      discovery_token_hash       => 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+      discovery_token_hash       => '0000000000000000000000000000000000000000000000000000000000000000',
       container_runtime          => 'cri_containerd',
       containerd_install_method  => 'package',
       containerd_package_name    => 'containerd',
@@ -30,6 +31,12 @@ describe 'the Kubernetes module on a Debian container', :smoke do
       manage_kernel_modules      => false,
       manage_sysctl_settings     => false,
       cgroup_driver              => 'systemd',
+    }
+
+    # There is no API server to join. Everything up to the join is applied for
+    # real; the join itself is skipped.
+    Exec <| title == 'kubeadm join' |> {
+      unless => 'true',
     }
   MANIFEST
 

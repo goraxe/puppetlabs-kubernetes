@@ -50,9 +50,15 @@ jobs:
           bundle exec rake spec_prep
           echo ::endgroup::
 
+      - name: Build the systemd image
+        run: |
+          version='${{ matrix.platform }}'
+          docker build -t "debian-systemd:${version#*:}" --build-arg "DEBIAN_VERSION=${version#*:}" -f .github/docker/Dockerfile.debian-systemd .github/docker
+
       - name: Provision test environment
         run: |
-          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster image_type=${{ matrix.platform }} provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"
+          version='${{ matrix.platform }}'
+          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster "image_type=debian-systemd:${version#*:}" provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"
           FILE='spec/fixtures/litmus_inventory.yaml'
           sed -e 's/password: .*/password: "[redacted]"/' < $FILE || true
           echo INVENTORY_PATH=$FILE >> $GITHUB_ENV
