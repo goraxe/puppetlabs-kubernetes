@@ -42,11 +42,11 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'applies without errors' do
-    apply_manifest(pp, expect_failures: false)
+    expect { apply_manifest(pp) }.not_to raise_error
   end
 
   it 'applies idempotently' do
-    apply_manifest(pp, catch_changes: true)
+    expect { apply_manifest(pp, catch_changes: true) }.not_to raise_error
   end
 
   ['kubelet', 'kubeadm', 'kubectl', 'containerd'].each do |pkg|
