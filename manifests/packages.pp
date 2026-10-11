@@ -189,9 +189,17 @@ class kubernetes::packages (
 
   if $manage_kernel_modules and $manage_sysctl_settings {
     kmod::load { 'overlay': }
-    kmod::load { 'br_netfilter':
-      before => Sysctl['net.bridge.bridge-nf-call-iptables'],
-    }
+    kmod::load { 'br_netfilter': }
+
+    # augeasproviders_sysctl decides which keys exist from a snapshot it takes
+    # once per run, when the FIRST Sysctl resource of any class is evaluated.
+    # br_netfilter has to be loaded before that, or on a fresh node
+    # net.bridge.bridge-nf-call-iptables is "not a valid sysctl key". The
+    # failure skips the whole kubernetes::service class too (containerd's
+    # one-time restart onto the CRI-enabled config included), so a node needed
+    # two runs to converge.
+    Kmod::Load['br_netfilter'] -> Sysctl <| |>
+
     sysctl { 'net.bridge.bridge-nf-call-iptables':
       ensure => present,
       value  => '1',
