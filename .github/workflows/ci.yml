@@ -58,7 +58,17 @@ jobs:
       - name: Provision test environment
         run: |
           version='${{ matrix.platform }}'
-          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster "image_type=debian-systemd:${version#*:}" provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"
+          # Provisioning installs sshd with apt inside the container, which now
+          # and then fails on a transient mirror error, so retry from scratch.
+          for attempt in 1 2 3; do
+            if bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster "image_type=debian-systemd:${version#*:}" provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"; then
+              break
+            fi
+            [ "${attempt}" -lt 3 ] || exit 1
+            docker rm -f $(docker ps -aq) || true
+            rm -f spec/fixtures/litmus_inventory.yaml
+            sleep 10
+          done
           FILE='spec/fixtures/litmus_inventory.yaml'
           sed -e 's/password: .*/password: "[redacted]"/' < $FILE || true
           echo INVENTORY_PATH=$FILE >> $GITHUB_ENV

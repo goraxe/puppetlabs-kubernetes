@@ -10,7 +10,9 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   # apply_manifest truncates the puppet output in its exception message, so
   # print it in full before re-raising.
   def apply_verbose(manifest, opts = {})
-    apply_manifest(manifest, opts)
+    result = apply_manifest(manifest, opts)
+    puts result.stdout if result.respond_to?(:stdout)
+    result
   rescue RuntimeError => e
     puts e.message
     raise
@@ -39,6 +41,8 @@ describe 'the Kubernetes module on a Debian container', :smoke do
       # No kernel modules in a container; the runner kernel provides them.
       manage_kernel_modules      => false,
       manage_sysctl_settings     => false,
+      # Swap belongs to the runner, not the container.
+      disable_swap               => false,
       cgroup_driver              => 'systemd',
     }
 
@@ -93,7 +97,7 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'runs containerd' do
-    run_shell('systemctl status containerd --no-pager; journalctl -u containerd --no-pager | tail -40', expect_failures: true) do |r|
+    run_shell('systemctl status containerd --no-pager; journalctl -u containerd --no-pager | tail -40; systemctl start containerd; systemctl status containerd --no-pager', expect_failures: true) do |r|
       puts r.stdout
     end
     run_shell('systemctl is-active containerd') do |r|
