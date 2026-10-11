@@ -128,7 +128,11 @@ def execute_agent(role)
   run_shell('puppet agent --test', expect_failures: true)
 end
 
+# The smoke scope (rake kubernetes:smoke) runs against a single container and
+# must not build the three node puppetserver cluster below.
 RSpec.configure do |c|
+  next if ENV['KUBERNETES_ACCEPTANCE_SCOPE'] == 'smoke'
+
   c.before :suite do
     # Fetch hostname and  ip adress for each node
     hostname1, ipaddr1, int_ipaddr1 =  fetch_ip_hostname_by_role('controller')

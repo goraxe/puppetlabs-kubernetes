@@ -94,5 +94,15 @@ namespace :kubernetes do
     t.pattern = 'spec/acceptance/**{,/*/**}/*_spec.rb'
     t.rspec_opts = "--tag integration"
   end
+
+  # Single container, apply the module and assert on the result. Needs only a
+  # litmus inventory with one Debian target and an agent installed on it.
+  RSpec::Core::RakeTask.new(:smoke) do |t|
+    t.pattern = 'spec/acceptance/smoke/*_spec.rb'
+  end
+  task :smoke_scope do
+    ENV['KUBERNETES_ACCEPTANCE_SCOPE'] = 'smoke'
+  end
+  task smoke: :smoke_scope
 end
 
