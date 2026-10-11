@@ -52,7 +52,7 @@ jobs:
 
       - name: Provision test environment
         run: |
-          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster image_type=${{ matrix.platform }} provision_type=docker 'roles=["controller"]'
+          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster image_type=${{ matrix.platform }} provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"
           FILE='spec/fixtures/litmus_inventory.yaml'
           sed -e 's/password: .*/password: "[redacted]"/' < $FILE || true
           echo INVENTORY_PATH=$FILE >> $GITHUB_ENV
