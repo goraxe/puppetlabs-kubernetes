@@ -7,6 +7,15 @@ require 'spec_helper_acceptance'
 # kubelet unit, kubeadm join config) and asserts on the result. It does not
 # form a cluster: kubeadm init/join, CNI and workloads need real VMs.
 describe 'the Kubernetes module on a Debian container', :smoke do
+  # apply_manifest truncates the puppet output in its exception message, so
+  # print it in full before re-raising.
+  def apply_verbose(manifest, opts = {})
+    apply_manifest(manifest, opts)
+  rescue RuntimeError => e
+    puts e.message
+    raise
+  end
+
   k8s_minor = 'v1.33'
 
   pp = <<~MANIFEST
@@ -49,11 +58,11 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'applies without errors' do
-    expect { apply_manifest(pp) }.not_to raise_error
+    expect { apply_verbose(pp) }.not_to raise_error
   end
 
   it 'applies idempotently' do
-    expect { apply_manifest(pp, catch_changes: true) }.not_to raise_error
+    expect { apply_verbose(pp, catch_changes: true) }.not_to raise_error
   end
 
   ['kubelet', 'kubeadm', 'kubectl', 'containerd'].each do |pkg|
@@ -84,6 +93,9 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'runs containerd' do
+    run_shell('systemctl status containerd --no-pager; journalctl -u containerd --no-pager | tail -40', expect_failures: true) do |r|
+      puts r.stdout
+    end
     run_shell('systemctl is-active containerd') do |r|
       expect(r.stdout).to match(%r{^active$})
     end
