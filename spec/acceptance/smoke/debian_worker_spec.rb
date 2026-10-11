@@ -53,12 +53,6 @@ describe 'the Kubernetes module on a Debian container', :smoke do
     }
   MANIFEST
 
-  def containerd_diagnostics
-    diag = ['systemctl status containerd --no-pager', 'journalctl -u containerd --no-pager | tail -40',
-            'systemctl start containerd', 'systemctl status containerd --no-pager'].join('; ')
-    run_shell(diag, expect_failures: true) { |r| puts r.stdout }
-  end
-
   before(:all) do
     run_shell('apt-get update -qq && apt-get install -y -qq curl gnupg ca-certificates')
     run_shell('mkdir -p /etc/apt/keyrings && touch /etc/fstab')
@@ -103,7 +97,6 @@ describe 'the Kubernetes module on a Debian container', :smoke do
   end
 
   it 'runs containerd' do
-    containerd_diagnostics
     run_shell('systemctl is-active containerd') do |r|
       expect(r.stdout).to match(%r{^active$})
     end
