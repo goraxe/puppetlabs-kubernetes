@@ -117,7 +117,7 @@ describe 'kubernetes::packages', type: :class do
       end
 
       it 'installs etcd from the archive, guarded by the extracted binaries' do
-        is_expected.to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
+        expect(subject).to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
           .with_checksum_verify(false)
           .with_cleanup(true)
           .with_creates(['/usr/local/bin/etcd', '/usr/local/bin/etcdctl'])
@@ -133,7 +133,7 @@ describe 'kubernetes::packages', type: :class do
       # (creates is unset), so it must survive extraction; otherwise every run
       # re-downloads, re-extracts and restarts etcd.
       it 'keeps the verified archive instead of cleaning it up' do
-        is_expected.to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
+        expect(subject).to contain_archive('etcd-v3.1.12-linux-amd64.tar.gz')
           .with_checksum_verify(true)
           .with_cleanup(false)
       end

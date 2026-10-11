@@ -48,7 +48,7 @@ describe 'kubernetes::repos', type: :class do
         location: 'http://apt.kubernetes.io',
         repos: 'main',
         release: 'kubernetes-xenial',
-        key: { 'id' => '54A647F9048D5688D7DA2ABE6A030B21BA07F4FB', 'source' => 'https://packages.cloud.google.com/apt/doc/apt-key.gpg' },
+        keyring: '/etc/apt/keyrings/kubernetes-keyring.asc',
       )
     }
 
@@ -109,7 +109,7 @@ describe 'kubernetes::repos', type: :class do
         location: 'http://apt.kubernetes.io',
         repos: 'main',
         release: 'kubernetes-xenial',
-        key: { 'id' => '54A647F9048D5688D7DA2ABE6A030B21BA07F4FB', 'source' => 'https://packages.cloud.google.com/apt/doc/apt-key.gpg' },
+        keyring: '/etc/apt/keyrings/kubernetes-keyring.asc',
       )
     }
 
