@@ -217,6 +217,15 @@
 #  Example:
 #   {'RootlessControlPlane' => true}
 #   Default: undefined, no feature gates
+# @param apiserver_resources
+#   Resources (requests/limits) patched into the kube-apiserver container by kubeadm.
+#   Default: undef, no resources patch
+# @param controllermanager_resources
+#   Resources (requests/limits) patched into the kube-controller-manager container by kubeadm.
+#   Default: undef, no resources patch
+# @param scheduler_resources
+#   Resources (requests/limits) patched into the kube-scheduler container by kubeadm.
+#   Default: undef, no resources patch
 #
 class kubernetes::config::kubeadm (
   String $config_file = $kubernetes::config_file,
@@ -428,15 +437,15 @@ class kubernetes::config::kubeadm (
       group   => 'root',
       mode    => '0644',
       content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-apiserver' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-apiserver',
-            'resources' => $apiserver_resources,
-          }],
-        },
+          'apiVersion' => 'v1',
+          'kind'       => 'Pod',
+          'metadata'   => { 'name' => 'kube-apiserver' },
+          'spec'       => {
+            'containers' => [{
+                'name'      => 'kube-apiserver',
+                'resources' => $apiserver_resources,
+            }],
+          },
       }),
     }
   }
@@ -448,15 +457,15 @@ class kubernetes::config::kubeadm (
       group   => 'root',
       mode    => '0644',
       content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-controller-manager' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-controller-manager',
-            'resources' => $controllermanager_resources,
-          }],
-        },
+          'apiVersion' => 'v1',
+          'kind'       => 'Pod',
+          'metadata'   => { 'name' => 'kube-controller-manager' },
+          'spec'       => {
+            'containers' => [{
+                'name'      => 'kube-controller-manager',
+                'resources' => $controllermanager_resources,
+            }],
+          },
       }),
     }
   }
@@ -468,15 +477,15 @@ class kubernetes::config::kubeadm (
       group   => 'root',
       mode    => '0644',
       content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-scheduler' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-scheduler',
-            'resources' => $scheduler_resources,
-          }],
-        },
+          'apiVersion' => 'v1',
+          'kind'       => 'Pod',
+          'metadata'   => { 'name' => 'kube-scheduler' },
+          'spec'       => {
+            'containers' => [{
+                'name'      => 'kube-scheduler',
+                'resources' => $scheduler_resources,
+            }],
+          },
       }),
     }
   }
