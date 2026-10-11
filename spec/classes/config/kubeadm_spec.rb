@@ -600,4 +600,64 @@ describe 'kubernetes::config::kubeadm', type: :class do
         .with_content(%r{key: node-role.kubernetes.io/control-plane\n})
     }
   end
+
+  context 'with controlplane_bind_address' do
+    let(:params) do
+      {
+        'manage_etcd' => true,
+        'controlplane_bind_address' => '192.168.5.12',
+        'controllermanager_resources' => { 'requests' => { 'cpu' => '100m' } },
+        'kubeadm_extra_config' => { 'foo' => ['bar', 'baz'] },
+        'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
+        'kubelet_extra_arguments' => ['foo']
+      }
+    end
+
+    ['kube-controller-manager', 'kube-scheduler'].each do |target|
+      it "points the #{target} probes at the node address" do
+        patch = YAML.safe_load(catalogue.resource('File', "/etc/kubernetes/patches/#{target}+strategic.yaml")[:content])
+        container = patch['spec']['containers'][0]
+        expect(container['name']).to eq(target)
+        # kubeadm gives the scheduler a readiness probe, the controller-manager none.
+        probes = %w[startupProbe livenessProbe] + (target == 'kube-scheduler' ? ['readinessProbe'] : [])
+        probes.each do |probe|
+          expect(container[probe]).to eq('httpGet' => { 'host' => '192.168.5.12' })
+        end
+        expect(container.keys.grep(/Probe/).sort).to eq(probes.sort)
+      end
+
+      it "appends --bind-address for #{target} without assuming a command index" do
+        patch = JSON.parse(catalogue.resource('File', "/etc/kubernetes/patches/#{target}+json.json")[:content])
+        expect(patch).to eq([{ 'op' => 'add', 'path' => '/spec/containers/0/command/-', 'value' => '--bind-address=192.168.5.12' }])
+      end
+
+      it { is_expected.to contain_file("/etc/kubernetes/patches/#{target}1+json.json").with_ensure('absent') }
+    end
+
+    it 'keeps the resources in the patch of the component that sets them' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-controller-manager+strategic.yaml')[:content])
+      expect(patch['spec']['containers'][0]['resources']).to eq('requests' => { 'cpu' => '100m' })
+      scheduler = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-scheduler+strategic.yaml')[:content])
+      expect(scheduler['spec']['containers'][0]).not_to have_key('resources')
+    end
+  end
+
+  context 'without controlplane_bind_address' do
+    let(:params) do
+      {
+        'manage_etcd' => true,
+        'scheduler_resources' => { 'requests' => { 'cpu' => '50m' } },
+        'kubeadm_extra_config' => { 'foo' => ['bar', 'baz'] },
+        'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
+        'kubelet_extra_arguments' => ['foo']
+      }
+    end
+
+    it 'writes only the resources patch, as before' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-scheduler+strategic.yaml')[:content])
+      expect(patch['spec']['containers'][0]).to eq('name' => 'kube-scheduler', 'resources' => { 'requests' => { 'cpu' => '50m' } })
+    end
+    it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-scheduler+json.json') }
+    it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-controller-manager+strategic.yaml') }
+  end
 end

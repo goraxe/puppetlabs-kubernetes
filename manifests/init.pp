@@ -289,6 +289,13 @@
 #   A hash of extra volume mounts mounted on the controller manager.
 #   Defaults to []
 #
+# [*controlplane_bind_address*]
+#   This node's address for kube-controller-manager and kube-scheduler. When set,
+#   kubeadm patches (written to /etc/kubernetes/patches) append --bind-address
+#   and point the startup/liveness/readiness probes at it. Per node, so it
+#   belongs in hiera with a fact lookup, not in the ClusterConfiguration.
+#   Defaults to undef (kubeadm's 127.0.0.1)
+#
 # [*scheduler_extra_arguments*]
 #   A string array of extra arguments to be passed to scheduler.
 #   Defaults to []
@@ -669,6 +676,7 @@ class kubernetes (
   Optional[Hash] $apiserver_resources                      = undef,
   Optional[Hash] $controllermanager_resources               = undef,
   Optional[Hash] $scheduler_resources                       = undef,
+  Optional[Stdlib::IP::Address] $controlplane_bind_address = undef,
   String $service_cidr                                    = '10.96.0.0/12',
   Optional[String] $node_label                            = undef,
   Optional[Array[Hash]] $node_extra_taints                = undef,

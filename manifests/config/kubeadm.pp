@@ -287,6 +287,7 @@ class kubernetes::config::kubeadm (
   Optional[Hash] $apiserver_resources = $kubernetes::apiserver_resources,
   Optional[Hash] $controllermanager_resources = $kubernetes::controllermanager_resources,
   Optional[Hash] $scheduler_resources = $kubernetes::scheduler_resources,
+  Optional[Stdlib::IP::Address] $controlplane_bind_address = $kubernetes::controlplane_bind_address,
 ) {
   if !($proxy_mode in ['', 'userspace', 'iptables', 'ipvs', 'kernelspace']) {
     fail('Invalid kube-proxy mode! Must be one of "", userspace, iptables, ipvs, kernelspace.')
@@ -441,43 +442,68 @@ class kubernetes::config::kubeadm (
     }
   }
 
-  if $controllermanager_resources {
-    file { "${patches_dir}/kube-controller-manager+strategic.yaml":
-      ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-      content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-controller-manager' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-controller-manager',
-            'resources' => $controllermanager_resources,
-          }],
-        },
-      }),
-    }
-  }
+  # kube-controller-manager and kube-scheduler: bind to this node's address
+  # and point their probes at it. kubeadm derives both from the cluster-wide
+  # ClusterConfiguration in the kubeadm-config ConfigMap during `kubeadm
+  # upgrade`, which cannot hold a per-node address, so without these patches
+  # an upgrade regenerates 127.0.0.1 probes. The flag is appended (kubeadm's
+  # own --bind-address=127.0.0.1 comes earlier, the last one wins), so no
+  # command index is assumed. Replaces hand-written <target>1+json.json files.
+  # Only the probes kubeadm generates are patched: kube-controller-manager has
+  # no readiness probe, and a patch would create one with a host and no port.
+  [
+    ['kube-controller-manager', $controllermanager_resources, ['startupProbe', 'livenessProbe']],
+    ['kube-scheduler', $scheduler_resources, ['startupProbe', 'livenessProbe', 'readinessProbe']],
+  ].each |$entry| {
+    $target = $entry[0]
+    $resources = $entry[1]
+    $probes = $entry[2]
 
-  if $scheduler_resources {
-    file { "${patches_dir}/kube-scheduler+strategic.yaml":
-      ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-      content => stdlib::to_yaml({
-        'apiVersion' => 'v1',
-        'kind'       => 'Pod',
-        'metadata'   => { 'name' => 'kube-scheduler' },
-        'spec'       => {
-          'containers' => [{
-            'name'      => 'kube-scheduler',
-            'resources' => $scheduler_resources,
-          }],
+    if $resources or $controlplane_bind_address {
+      $resources_patch = $resources ? {
+        undef   => {},
+        default => { 'resources' => $resources },
+      }
+      $probe_patch = $controlplane_bind_address ? {
+        undef   => {},
+        default => $probes.reduce({}) |$memo, $probe| {
+          $memo + { $probe => { 'httpGet' => { 'host' => String($controlplane_bind_address) } } }
         },
-      }),
+      }
+
+      file { "${patches_dir}/${target}+strategic.yaml":
+        ensure  => file,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0644',
+        content => stdlib::to_yaml({
+          'apiVersion' => 'v1',
+          'kind'       => 'Pod',
+          'metadata'   => { 'name' => $target },
+          'spec'       => {
+            'containers' => [{ 'name' => $target } + $resources_patch + $probe_patch],
+          },
+        }),
+      }
+    }
+
+    if $controlplane_bind_address {
+      file { "${patches_dir}/${target}+json.json":
+        ensure  => file,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0644',
+        content => stdlib::to_json_pretty([{
+          'op'    => 'add',
+          'path'  => '/spec/containers/0/command/-',
+          'value' => "--bind-address=${controlplane_bind_address}",
+        }]),
+      }
+
+      # The superseded hand-written patches replaced command[4]/command[3].
+      file { "${patches_dir}/${target}1+json.json":
+        ensure => absent,
+      }
     }
   }
 }
