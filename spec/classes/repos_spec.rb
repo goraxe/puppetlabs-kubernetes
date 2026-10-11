@@ -264,20 +264,20 @@ describe 'kubernetes::repos', type: :class do
 
       if debian[:release] == '13'
         it 'signs the Docker repo with a keyring file' do
-          expect(catalogue).to contain_apt__keyring('docker.asc')
+          expect(subject).to contain_apt__keyring('docker.asc')
             .with(dir: '/etc/apt/keyrings', source: 'https://download.docker.com/linux/debian/gpg')
-          expect(catalogue).to contain_apt__source('docker')
+          expect(subject).to contain_apt__source('docker')
             .with_keyring('/etc/apt/keyrings/docker.asc')
             .without_key
             .that_requires('Apt::Keyring[docker.asc]')
         end
       else
         it 'keeps the apt::key path' do
-          expect(catalogue).to contain_apt__source('docker').with_key(
+          expect(subject).to contain_apt__source('docker').with_key(
             'id' => '9DC858229FC7DD38854AE2D88D81803C0EBFCD88',
             'source' => 'https://download.docker.com/linux/debian/gpg',
           ).without_keyring
-          expect(catalogue).not_to contain_apt__keyring('docker.asc')
+          expect(subject).not_to contain_apt__keyring('docker.asc')
         end
       end
     end
