@@ -613,16 +613,18 @@ describe 'kubernetes::config::kubeadm', type: :class do
       }
     end
 
-    ['kube-controller-manager', 'kube-scheduler'].each do |target|
+    # kubeadm gives the scheduler a readiness probe, the controller-manager none.
+    probes_by_target = {
+      'kube-controller-manager' => ['startupProbe', 'livenessProbe'],
+      'kube-scheduler' => ['startupProbe', 'livenessProbe', 'readinessProbe']
+    }
+
+    probes_by_target.each do |target, probes|
       it "points the #{target} probes at the node address" do
         patch = YAML.safe_load(catalogue.resource('File', "/etc/kubernetes/patches/#{target}+strategic.yaml")[:content])
         container = patch['spec']['containers'][0]
         expect(container['name']).to eq(target)
-        # kubeadm gives the scheduler a readiness probe, the controller-manager none.
-        probes = ['startupProbe', 'livenessProbe'] + ((target == 'kube-scheduler') ? ['readinessProbe'] : [])
-        probes.each do |probe|
-          expect(container[probe]).to eq('httpGet' => { 'host' => '192.168.5.12' })
-        end
+        expect(container.slice(*probes).values).to all(eq('httpGet' => { 'host' => '192.168.5.12' }))
         expect(container.keys.grep(%r{Probe}).sort).to eq(probes.sort)
       end
 
