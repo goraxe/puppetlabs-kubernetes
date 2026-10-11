@@ -17,6 +17,7 @@ fixtures:
     provision: 'https://github.com/puppetlabs/provision.git'
     yumrepo_core:
       repo: https://github.com/puppetlabs/puppetlabs-yumrepo_core.git
+      ref: v2.1.0
       puppet_version: ">= 6.0.0"
     augueas_core:
       repo: https://github.com/puppetlabs/puppetlabs-augeas_core.git
