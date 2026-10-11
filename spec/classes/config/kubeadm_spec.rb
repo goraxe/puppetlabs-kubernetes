@@ -619,11 +619,11 @@ describe 'kubernetes::config::kubeadm', type: :class do
         container = patch['spec']['containers'][0]
         expect(container['name']).to eq(target)
         # kubeadm gives the scheduler a readiness probe, the controller-manager none.
-        probes = %w[startupProbe livenessProbe] + (target == 'kube-scheduler' ? ['readinessProbe'] : [])
+        probes = ['startupProbe', 'livenessProbe'] + ((target == 'kube-scheduler') ? ['readinessProbe'] : [])
         probes.each do |probe|
           expect(container[probe]).to eq('httpGet' => { 'host' => '192.168.5.12' })
         end
-        expect(container.keys.grep(/Probe/).sort).to eq(probes.sort)
+        expect(container.keys.grep(%r{Probe}).sort).to eq(probes.sort)
       end
 
       it "appends --bind-address for #{target} without assuming a command index" do
@@ -657,6 +657,7 @@ describe 'kubernetes::config::kubeadm', type: :class do
       patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-scheduler+strategic.yaml')[:content])
       expect(patch['spec']['containers'][0]).to eq('name' => 'kube-scheduler', 'resources' => { 'requests' => { 'cpu' => '50m' } })
     end
+
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-scheduler+json.json') }
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-controller-manager+strategic.yaml') }
   end
