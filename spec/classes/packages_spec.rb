@@ -357,101 +357,27 @@ describe 'kubernetes::packages', type: :class do
     it { is_expected.to contain_file('/etc/containerd') }
     it { is_expected.to contain_file('/etc/containerd/config.toml').without_source }
 
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"\]\s*},
-      )
-    }
+    # The containerd 2.x config template (commit c152fe5) no longer renders
+    # registry mirrors, auth or TLS sections, so the containerd_plugins_registry
+    # parameter is now ignored by the template. Assert they stay absent and the
+    # rest of the config is still rendered.
+    it { is_expected.to contain_file('/etc/containerd/config.toml').with_content(%r{^\[grpc\]}) }
+    it { is_expected.to contain_file('/etc/containerd/config.toml').with_content(%r{\[plugins."io.containerd.grpc.v1.cri"\]}) }
 
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*endpoint = \["https://registry-1.docker.io"\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').without_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.private.example.com"\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.even-more-private.example.com"\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*endpoint = \["https://docker.even-more-private.example.com"\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.configs."docker.private.example.com".auth\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*auth = "1azhzLXVuaXQtdGVzdDpCQ0NwNWZUUXlyd3c1aUxoMXpEQXJnUT=="\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*username = "user2"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*password = "secret2"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*identitytoken = "azhzLXVuaXQtdGVzdDpCQ0NwNWZUUXlyd3c1aUxoMXpEQXJnUT"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.configs."docker.private.example.com".tls\]\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*ca_file = "ca1.pem"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*cert_file = "cert1.pem"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*key_file = "key1.pem"\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*insecure_skip_verify = true\s*},
-      )
-    }
-
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*ca_file = "ca2.pem"\s*},
-      )
-    }
+    [
+      'registry.mirrors',
+      'registry.configs',
+      'endpoint =',
+      'username =',
+      'password =',
+      'identitytoken =',
+      'ca_file =',
+      'cert_file =',
+      'key_file =',
+      'insecure_skip_verify',
+    ].each do |removed|
+      it { is_expected.to contain_file('/etc/containerd/config.toml').without_content(%r{#{Regexp.escape(removed)}}) }
+    end
 
     it { is_expected.not_to contain_file('/etc/apt/preferences.d/containerd') }
 
@@ -1008,17 +934,27 @@ describe 'kubernetes::packages', type: :class do
     it { is_expected.to contain_file('/etc/containerd') }
     it { is_expected.to contain_file('/etc/containerd/config.toml') }
 
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*\[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"\]\s*},
-      )
-    }
+    # The containerd 2.x config template (commit c152fe5) no longer renders
+    # registry mirrors, auth or TLS sections, so the containerd_plugins_registry
+    # parameter is now ignored by the template. Assert they stay absent and the
+    # rest of the config is still rendered.
+    it { is_expected.to contain_file('/etc/containerd/config.toml').with_content(%r{^\[grpc\]}) }
+    it { is_expected.to contain_file('/etc/containerd/config.toml').with_content(%r{\[plugins."io.containerd.grpc.v1.cri"\]}) }
 
-    it {
-      expect(subject).to contain_file('/etc/containerd/config.toml').with_content(
-        %r{\s*endpoint = \["https://registry-1.docker.io"\]\s*},
-      )
-    }
+    [
+      'registry.mirrors',
+      'registry.configs',
+      'endpoint =',
+      'username =',
+      'password =',
+      'identitytoken =',
+      'ca_file =',
+      'cert_file =',
+      'key_file =',
+      'insecure_skip_verify',
+    ].each do |removed|
+      it { is_expected.to contain_file('/etc/containerd/config.toml').without_content(%r{#{Regexp.escape(removed)}}) }
+    end
     # it { should contain_file('/etc/apt/preferences.d/containerd')}
   end
 
