@@ -663,4 +663,19 @@ describe 'kubernetes::config::kubeadm', type: :class do
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-scheduler+json.json') }
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-controller-manager+strategic.yaml') }
   end
+
+  context 'with a v1beta3 config (kubernetes 1.35)' do
+    let(:params) do
+      {
+        'kubernetes_version' => '1.35.9',
+        'manage_etcd' => false,
+      }
+    end
+
+    # `kubeadm init --config` only applies the patch files in
+    # /etc/kubernetes/patches if the InitConfiguration names the directory.
+    it { is_expected.to contain_file('/etc/kubernetes/config.yaml').with_content(%r{kind: InitConfiguration}) }
+    it { is_expected.to contain_file('/etc/kubernetes/config.yaml').with_content(%r{^patches:\n  directory: /etc/kubernetes/patches$}) }
+    it { is_expected.to contain_file('/etc/kubernetes/patches').with_ensure('directory') }
+  end
 end

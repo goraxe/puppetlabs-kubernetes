@@ -29,6 +29,8 @@ nodeRegistration:
     <%- @kubelet_extra_arguments.each do |arg| -%>
     <%= arg %>
     <%- end -%>
+patches:
+  directory: <%= @patches_dir %>
 <% if @skip_phases -%>
 skipPhases:
 <% @skip_phases.split(',').each do |skip_phase| -%>

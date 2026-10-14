@@ -418,16 +418,17 @@ class kubernetes::config::kubeadm (
     $node_role = 'master'
   }
 
+  # Kubeadm strategic merge patches for control plane static pods.
+  # Allows setting explicit resource requests/limits to avoid inheriting
+  # restrictive defaults from namespace LimitRange objects. Defined before the
+  # config file: its template points `kubeadm init` at this directory.
+  $patches_dir = '/etc/kubernetes/patches'
+
   file { $config_file:
     ensure  => file,
     content => template("kubernetes/${config_version}/config_kubeadm.yaml.erb"),
     mode    => '0600',
   }
-
-  # Kubeadm strategic merge patches for control plane static pods.
-  # Allows setting explicit resource requests/limits to avoid inheriting
-  # restrictive defaults from namespace LimitRange objects.
-  $patches_dir = '/etc/kubernetes/patches'
 
   file { $patches_dir:
     ensure => directory,
