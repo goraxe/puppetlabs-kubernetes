@@ -636,6 +636,15 @@ describe 'kubernetes::config::kubeadm', type: :class do
       it { is_expected.to contain_file("/etc/kubernetes/patches/#{target}1+json.json").with_ensure('absent') }
     end
 
+    it 'points the three kube-apiserver probes at the node address and sets no bind address' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
+      container = patch['spec']['containers'][0]
+      expect(container['name']).to eq('kube-apiserver')
+      expect(container.slice('startupProbe', 'livenessProbe', 'readinessProbe').values).to all(eq('httpGet' => { 'host' => '192.168.5.12' }))
+      expect(container).not_to have_key('resources')
+      expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+json.json')).to be_nil
+    end
+
     it 'keeps the resources in the patch of the component that sets them' do
       patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-controller-manager+strategic.yaml')[:content])
       expect(patch['spec']['containers'][0]['resources']).to eq('requests' => { 'cpu' => '100m' })
@@ -653,6 +662,10 @@ describe 'kubernetes::config::kubeadm', type: :class do
         'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
         'kubelet_extra_arguments' => ['foo']
       }
+    end
+
+    it 'writes no kube-apiserver patch without resources or a bind address' do
+      expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')).to be_nil
     end
 
     it 'writes only the resources patch, as before' do

@@ -228,7 +228,8 @@
 #   Default: undef, no resources patch
 # @param controlplane_bind_address
 #   This node's address for kube-controller-manager and kube-scheduler. When set, kubeadm
-#   patches append --bind-address and point the startup/liveness/readiness probes at it,
+#   patches append --bind-address and point the startup/liveness/readiness probes at it
+#   (the kube-apiserver probes too, without a bind-address change),
 #   so a kubeadm upgrade (which renders them from the cluster-wide ConfigMap) keeps them.
 #   Default: undef, kubeadm's 127.0.0.1
 #
@@ -437,7 +438,24 @@ class kubernetes::config::kubeadm (
     mode   => '0755',
   }
 
-  if $apiserver_resources {
+  # kube-apiserver: resources, and (with controlplane_bind_address) its three
+  # probes pointed at this node's address. kubeadm derives the apiserver probe
+  # host from the advertise address, which on a VIP setup is the shared VIP: a
+  # master without a VIP instance would then probe another master, and a VIP
+  # blip could fail liveness on every apiserver at once. The apiserver listens
+  # on all addresses, so the node address works. No --bind-address patch.
+  if $apiserver_resources or $controlplane_bind_address {
+    $apiserver_resources_patch = $apiserver_resources ? {
+      undef   => {},
+      default => { 'resources' => $apiserver_resources },
+    }
+    $apiserver_probe_patch = $controlplane_bind_address ? {
+      undef   => {},
+      default => ['startupProbe', 'livenessProbe', 'readinessProbe'].reduce({}) |$memo, $probe| {
+        $memo + { $probe => { 'httpGet' => { 'host' => String($controlplane_bind_address) } } }
+      },
+    }
+
     file { "${patches_dir}/kube-apiserver+strategic.yaml":
       ensure  => file,
       owner   => 'root',
@@ -448,10 +466,7 @@ class kubernetes::config::kubeadm (
           'kind'       => 'Pod',
           'metadata'   => { 'name' => 'kube-apiserver' },
           'spec'       => {
-            'containers' => [{
-                'name'      => 'kube-apiserver',
-                'resources' => $apiserver_resources,
-            }],
+            'containers' => [{ 'name' => 'kube-apiserver' } + $apiserver_resources_patch + $apiserver_probe_patch],
           },
       }),
     }
