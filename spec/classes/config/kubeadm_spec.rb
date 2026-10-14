@@ -636,6 +636,15 @@ describe 'kubernetes::config::kubeadm', type: :class do
       it { is_expected.to contain_file("/etc/kubernetes/patches/#{target}1+json.json").with_ensure('absent') }
     end
 
+    it 'points the three kube-apiserver probes at the node address and sets no bind address' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
+      container = patch['spec']['containers'][0]
+      expect(container['name']).to eq('kube-apiserver')
+      expect(container.slice('startupProbe', 'livenessProbe', 'readinessProbe').values).to all(eq('httpGet' => { 'host' => '192.168.5.12' }))
+      expect(container).not_to have_key('resources')
+      expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+json.json')).to be_nil
+    end
+
     it 'keeps the resources in the patch of the component that sets them' do
       patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-controller-manager+strategic.yaml')[:content])
       expect(patch['spec']['containers'][0]['resources']).to eq('requests' => { 'cpu' => '100m' })
@@ -655,6 +664,10 @@ describe 'kubernetes::config::kubeadm', type: :class do
       }
     end
 
+    it 'writes no kube-apiserver patch without resources or a bind address' do
+      expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')).to be_nil
+    end
+
     it 'writes only the resources patch, as before' do
       patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-scheduler+strategic.yaml')[:content])
       expect(patch['spec']['containers'][0]).to eq('name' => 'kube-scheduler', 'resources' => { 'requests' => { 'cpu' => '50m' } })
@@ -662,5 +675,20 @@ describe 'kubernetes::config::kubeadm', type: :class do
 
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-scheduler+json.json') }
     it { is_expected.not_to contain_file('/etc/kubernetes/patches/kube-controller-manager+strategic.yaml') }
+  end
+
+  context 'with a v1beta3 config (kubernetes 1.35)' do
+    let(:params) do
+      {
+        'kubernetes_version' => '1.35.9',
+        'manage_etcd' => false,
+      }
+    end
+
+    # `kubeadm init --config` only applies the patch files in
+    # /etc/kubernetes/patches if the InitConfiguration names the directory.
+    it { is_expected.to contain_file('/etc/kubernetes/config.yaml').with_content(%r{kind: InitConfiguration}) }
+    it { is_expected.to contain_file('/etc/kubernetes/config.yaml').with_content(%r{^patches:\n  directory: /etc/kubernetes/patches$}) }
+    it { is_expected.to contain_file('/etc/kubernetes/patches').with_ensure('directory') }
   end
 end
