@@ -12,30 +12,30 @@ jobs:
     uses: "puppetlabs/cat-github-actions/.github/workflows/module_ci.yml@main"
     secrets: "inherit"
 
-  # Manual only. The acceptance run provisions centos-7 on an ubuntu-20.04
-  # runner (retired, so the job never starts) and tests distros this fork does
-  # not run. puppet-control-repo's catalog specs are the integration test here;
-  # re-point this at Debian 12/13 runners before enabling it on pull requests.
+  # Manual only (workflow_dispatch). Acceptance scope is reduced to what a
+  # hosted runner can do: one privileged systemd container per Debian release,
+  # the module applied with a worker role, assertions on packages, containerd,
+  # kubelet and the kubeadm join config. No cluster is formed. The three node
+  # puppetserver cluster in spec/acceptance/integration_kubernetes_spec.rb
+  # (rake kubernetes:integration) still needs real VMs and is not run here.
   Integration:
     if: "github.event_name == 'workflow_dispatch'"
     needs: "Spec"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        {
-          'platform': [ 'centos-7' ],
-          'collection': [ 'puppet7-nightly', 'puppet8-nightly' ]
-        }
+        platform: [ 'debian:12', 'debian:13' ]
+        collection: [ 'openvox8' ]
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Activate Ruby 2.7
+      - name: Activate Ruby 3.2
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "2.7"
+          ruby-version: "3.2"
           bundler-cache: true
 
       - name: Print bundle environment
@@ -50,28 +50,42 @@ jobs:
           bundle exec rake spec_prep
           echo ::endgroup::
 
+      - name: Build the systemd image
+        run: |
+          version='${{ matrix.platform }}'
+          docker build -t "debian-systemd:${version#*:}" --build-arg "DEBIAN_VERSION=${version#*:}" -f .github/docker/Dockerfile.debian-systemd .github/docker
+
       - name: Provision test environment
         run: |
-          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster image_type=${{ matrix.platform }}
+          version='${{ matrix.platform }}'
+          # Provisioning installs sshd with apt inside the container, which now
+          # and then fails on a transient mirror error, so retry from scratch.
+          for attempt in 1 2 3; do
+            if bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::provision_cluster "image_type=debian-systemd:${version#*:}" provision_type=docker 'roles=["controller"]' "inventory=${PWD}/spec/fixtures/litmus_inventory.yaml"; then
+              break
+            fi
+            [ "${attempt}" -lt 3 ] || exit 1
+            docker rm -f $(docker ps -aq) || true
+            rm -f spec/fixtures/litmus_inventory.yaml
+            sleep 10
+          done
           FILE='spec/fixtures/litmus_inventory.yaml'
           sed -e 's/password: .*/password: "[redacted]"/' < $FILE || true
           echo INVENTORY_PATH=$FILE >> $GITHUB_ENV
-
-      - name: Puppet server setup
-        run: |
-          bundle exec bolt --modulepath spec/fixtures/modules plan run kubernetes::puppetserver_setup collection='${{ matrix.collection }}' -i ./$INVENTORY_PATH
+          echo TARGET_HOST="$(ruby -ryaml -e 'puts YAML.load_file(ARGV[0])["groups"].flat_map { |g| g["targets"] }.first["uri"]' $FILE)" >> $GITHUB_ENV
+          echo CONTAINER="$(docker ps -q | head -n1)" >> $GITHUB_ENV
 
       - name: Install agent
         run: |
-          bundle exec rake 'litmus:install_agent[${{ matrix.collection }}]'
+          .github/scripts/install-openvox.sh "$CONTAINER" '${{ matrix.collection }}'
 
       - name: Install module
         run: |
-          bundle exec rake 'litmus:install_module'
+          .github/scripts/copy-fixtures.sh "$CONTAINER"
 
-      - name: Run integration tests
+      - name: Run smoke acceptance tests
         run: |
-          bundle exec rake kubernetes:integration
+          bundle exec rake kubernetes:smoke
 
       - name: Remove test environment
         if: ${{ always() }}

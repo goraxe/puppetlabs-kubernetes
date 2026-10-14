@@ -1,0 +1,11 @@
+# Debian with systemd as PID 1, for the Integration job. The stock debian image
+# has no init, and the docker provisioner starts the image's default command.
+ARG DEBIAN_VERSION=12
+FROM debian:${DEBIAN_VERSION}
+ENV container=docker
+RUN apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends systemd systemd-sysv dbus ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+STOPSIGNAL SIGRTMIN+3
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/sbin/init"]

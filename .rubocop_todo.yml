@@ -103,6 +103,7 @@ RSpec/DescribeClass:
     - '**/spec/system/**/*'
     - '**/spec/views/**/*'
     - 'spec/acceptance/integration_kubernetes_spec.rb'
+    - 'spec/acceptance/smoke/debian_worker_spec.rb'
     - 'spec/acceptance/kubernetes_spec.rb'
     - 'spec/classes/cluster_roles_spec.rb'
     - 'spec/classes/config/kubeadm_spec.rb'
