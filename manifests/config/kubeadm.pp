@@ -453,9 +453,13 @@ class kubernetes::config::kubeadm (
       undef   => {},
       default => { 'resources' => $apiserver_resources },
     }
-    $apiserver_env_patch = $apiserver_env.empty ? {
+    $apiserver_env_list = $apiserver_env.keys.sort.map |$name| {
+      $entry = { 'name' => $name, 'value' => $apiserver_env[$name] }
+      $entry
+    }
+    $apiserver_env_patch = $apiserver_env_list.empty ? {
       true    => {},
-      default => { 'env' => $apiserver_env.keys.sort.map |$name| { { 'name' => $name, 'value' => $apiserver_env[$name] } } },
+      default => { 'env' => $apiserver_env_list },
     }
     $apiserver_probe_patch = $controlplane_bind_address ? {
       undef   => {},
