@@ -220,6 +220,9 @@
 # @param apiserver_resources
 #   Resources (requests/limits) patched into the kube-apiserver container by kubeadm.
 #   Default: undef, no resources patch
+# @param apiserver_env
+#   Environment variables (name => value) patched into the kube-apiserver container
+#   by kubeadm. Default: {}, no env patch
 # @param controllermanager_resources
 #   Resources (requests/limits) patched into the kube-controller-manager container by kubeadm.
 #   Default: undef, no resources patch
@@ -300,6 +303,7 @@ class kubernetes::config::kubeadm (
   String $conntrack_tcp_stablished_timeout = $kubernetes::conntrack_tcp_stablished_timeout,
   Hash[String[1], Boolean] $feature_gates = $kubernetes::feature_gates,
   Optional[Hash] $apiserver_resources = $kubernetes::apiserver_resources,
+  Hash[String[1], String] $apiserver_env = $kubernetes::apiserver_env,
   Optional[Hash] $controllermanager_resources = $kubernetes::controllermanager_resources,
   Optional[Hash] $scheduler_resources = $kubernetes::scheduler_resources,
   Optional[Stdlib::IP::Address] $controlplane_bind_address = $kubernetes::controlplane_bind_address,
@@ -444,10 +448,14 @@ class kubernetes::config::kubeadm (
   # master without a VIP instance would then probe another master, and a VIP
   # blip could fail liveness on every apiserver at once. The apiserver listens
   # on all addresses, so the node address works. No --bind-address patch.
-  if $apiserver_resources or $controlplane_bind_address {
+  if $apiserver_resources or $controlplane_bind_address or !$apiserver_env.empty {
     $apiserver_resources_patch = $apiserver_resources ? {
       undef   => {},
       default => { 'resources' => $apiserver_resources },
+    }
+    $apiserver_env_patch = $apiserver_env.empty ? {
+      true    => {},
+      default => { 'env' => $apiserver_env.keys.sort.map |$name| { { 'name' => $name, 'value' => $apiserver_env[$name] } } },
     }
     $apiserver_probe_patch = $controlplane_bind_address ? {
       undef   => {},
@@ -466,7 +474,7 @@ class kubernetes::config::kubeadm (
           'kind'       => 'Pod',
           'metadata'   => { 'name' => 'kube-apiserver' },
           'spec'       => {
-            'containers' => [{ 'name' => 'kube-apiserver' } + $apiserver_resources_patch + $apiserver_probe_patch],
+            'containers' => [{ 'name' => 'kube-apiserver' } + $apiserver_resources_patch + $apiserver_env_patch + $apiserver_probe_patch],
           },
       }),
     }

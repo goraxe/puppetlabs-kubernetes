@@ -642,6 +642,7 @@ describe 'kubernetes::config::kubeadm', type: :class do
       expect(container['name']).to eq('kube-apiserver')
       expect(container.slice('startupProbe', 'livenessProbe', 'readinessProbe').values).to all(eq('httpGet' => { 'host' => '192.168.5.12' }))
       expect(container).not_to have_key('resources')
+      expect(container).not_to have_key('env')
       expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+json.json')).to be_nil
     end
 
@@ -650,6 +651,43 @@ describe 'kubernetes::config::kubeadm', type: :class do
       expect(patch['spec']['containers'][0]['resources']).to eq('requests' => { 'cpu' => '100m' })
       scheduler = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-scheduler+strategic.yaml')[:content])
       expect(scheduler['spec']['containers'][0]).not_to have_key('resources')
+    end
+  end
+
+  context 'with apiserver_env' do
+    let(:params) do
+      {
+        'manage_etcd' => true,
+        'apiserver_env' => { 'GOMEMLIMIT' => '3200MiB', 'GOGC' => '100' },
+        'apiserver_resources' => { 'limits' => { 'memory' => '4Gi' } },
+        'kubeadm_extra_config' => { 'foo' => ['bar', 'baz'] },
+        'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
+        'kubelet_extra_arguments' => ['foo']
+      }
+    end
+
+    it 'patches the env into the kube-apiserver container, sorted by name, next to the resources' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
+      container = patch['spec']['containers'][0]
+      expect(container['env']).to eq([{ 'name' => 'GOGC', 'value' => '100' }, { 'name' => 'GOMEMLIMIT', 'value' => '3200MiB' }])
+      expect(container['resources']).to eq('limits' => { 'memory' => '4Gi' })
+    end
+  end
+
+  context 'with only apiserver_env' do
+    let(:params) do
+      {
+        'manage_etcd' => true,
+        'apiserver_env' => { 'GOMEMLIMIT' => '3200MiB' },
+        'kubeadm_extra_config' => { 'foo' => ['bar', 'baz'] },
+        'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
+        'kubelet_extra_arguments' => ['foo']
+      }
+    end
+
+    it 'still writes the kube-apiserver patch' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
+      expect(patch['spec']['containers'][0]).to eq('name' => 'kube-apiserver', 'env' => [{ 'name' => 'GOMEMLIMIT', 'value' => '3200MiB' }])
     end
   end
 
