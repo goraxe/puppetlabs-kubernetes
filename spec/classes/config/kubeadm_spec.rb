@@ -636,13 +636,16 @@ describe 'kubernetes::config::kubeadm', type: :class do
       it { is_expected.to contain_file("/etc/kubernetes/patches/#{target}1+json.json").with_ensure('absent') }
     end
 
-    it 'points the three kube-apiserver probes at the node address and sets no bind address' do
+    it 'points the three kube-apiserver probes at the node address' do
       patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
       container = patch['spec']['containers'][0]
       expect(container['name']).to eq('kube-apiserver')
       expect(container.slice('startupProbe', 'livenessProbe', 'readinessProbe').values).to all(eq('httpGet' => { 'host' => '192.168.5.12' }))
-      expect(container).not_to have_key('resources')
-      expect(container).not_to have_key('env')
+    end
+
+    it 'sets no kube-apiserver resources, env or bind address' do
+      patch = YAML.safe_load(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+strategic.yaml')[:content])
+      expect(patch['spec']['containers'][0].keys).not_to include('resources', 'env')
       expect(catalogue.resource('File', '/etc/kubernetes/patches/kube-apiserver+json.json')).to be_nil
     end
 
@@ -719,7 +722,7 @@ describe 'kubernetes::config::kubeadm', type: :class do
     let(:params) do
       {
         'kubernetes_version' => '1.35.9',
-        'manage_etcd' => false,
+        'manage_etcd' => false
       }
     end
 
