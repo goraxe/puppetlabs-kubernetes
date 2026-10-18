@@ -562,6 +562,11 @@
 #   Resources (requests/limits) patched into the kube-apiserver container by kubeadm.
 #   Default: undef, no resources patch
 #
+# [*apiserver_env*]
+#   Environment variables (name => value) patched into the kube-apiserver container
+#   by kubeadm, e.g. {'GOMEMLIMIT' => '3200MiB'}. The strategic merge keys env by name.
+#   Default: {}, no env patch
+#
 # [*controllermanager_resources*]
 #   Resources (requests/limits) patched into the kube-controller-manager container by kubeadm.
 #   Default: undef, no resources patch
@@ -686,6 +691,7 @@ class kubernetes (
   Array $controllermanager_extra_arguments                = [],
   Array $scheduler_extra_arguments                        = [],
   Optional[Hash] $apiserver_resources                      = undef,
+  Hash[String[1], String] $apiserver_env                   = {},
   Optional[Hash] $controllermanager_resources               = undef,
   Optional[Hash] $scheduler_resources                       = undef,
   Optional[Stdlib::IP::Address] $controlplane_bind_address = undef,
