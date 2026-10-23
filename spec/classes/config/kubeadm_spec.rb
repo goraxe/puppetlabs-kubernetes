@@ -74,6 +74,38 @@ describe 'kubernetes::config::kubeadm', type: :class do
 
       it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{.*--listen-metrics-urls http://0.0.0.0:2381.*}) }
     end
+
+    context 'with etcd_user defined' do
+      let(:params) do
+        {
+          'manage_etcd' => true,
+          'kubeadm_extra_config' => { 'foo' => ['bar', 'baz'] },
+          'kubelet_extra_config' => { 'baz' => ['bar', 'foo'] },
+          'kubelet_extra_arguments' => ['foo'],
+          'etcd_user' => 'etcd'
+        }
+      end
+
+      it { is_expected.to contain_group('etcd').with(system: true) }
+      it { is_expected.to contain_user('etcd').with(system: true, gid: 'etcd', shell: '/usr/sbin/nologin').that_comes_before('File[/etc/systemd/system/etcd.service]') }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{^User=etcd\nGroup=etcd$}) }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{^ExecStartPre=\+/bin/chown -R etcd:etcd /var/lib/etcd$}) }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{--cert-file=%d/server.crt \\\n    --key-file=%d/server.key}) }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{--peer-trusted-ca-file=%d/ca.crt}) }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').without_content(%r{--\S+=/etc/kubernetes/pki/etcd/}) }
+
+      ['ca.crt', 'server.crt', 'server.key', 'peer.crt', 'peer.key'].each do |f|
+        it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{^LoadCredential=#{Regexp.escape(f)}:/etc/kubernetes/pki/etcd/#{Regexp.escape(f)}$}) }
+      end
+    end
+
+    context 'without etcd_user' do
+      let(:params) { { 'manage_etcd' => true } }
+
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').without_content(%r{^(User|Group|LoadCredential|ExecStartPre)=}) }
+      it { is_expected.to contain_file('/etc/systemd/system/etcd.service').with_content(%r{--cert-file=/etc/kubernetes/pki/etcd/server.crt}) }
+      it { is_expected.not_to contain_user('etcd') }
+    end
   end
 
   context 'with manage_etcd => true and delegated_pki => true' do

@@ -162,6 +162,15 @@ class kubernetes::service (
         subscribe   => File['/etc/systemd/system/etcd.service'],
         notify      => Service['etcd'],
       }
+
+      # As a user, etcd reads the copies systemd made at start (LoadCredential),
+      # not the files, so a changed certificate or key needs a restart. A CA
+      # change restarts etcd on every controller's next run: roll it one at a time.
+      if $kubernetes::etcd_user and !$kubernetes::delegated_pki {
+        ['ca.crt', 'server.crt', 'server.key', 'peer.crt', 'peer.key'].each |String $f| {
+          File["/etc/kubernetes/pki/etcd/${f}"] ~> Service['etcd']
+        }
+      }
     }
   }
 

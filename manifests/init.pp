@@ -237,6 +237,16 @@
 #     The URL(s) to listen on to respond to /metrics and /health for etcd
 #   Defaults to undef
 #
+# [*etcd_user*]
+#   Run etcd as this system user (and group of the same name) instead of root.
+#   Only with etcd_install_method wget. The user is created, the unit gets
+#   User=/Group=, systemd hands etcd its certificates and keys with
+#   LoadCredential= (so the files under /etc/kubernetes/pki/etcd stay
+#   root-only), and each start first chowns etcd_data_dir to the user.
+#   etcd then sees certificates only as copied at start: a changed
+#   certificate or key restarts etcd (on every controller, for the CA).
+#   Defaults to undef (root)
+#
 # [*etcd_ca_key*]
 #   This is the ca certificate key data for the etcd cluster. This must be passed as string not as a file.
 #   Defaults to undef
@@ -659,6 +669,7 @@ class kubernetes (
   Integer $etcd_max_wals                                  = 5,
   Integer $etcd_max_request_bytes                         = 1572864,
   Optional[String] $etcd_listen_metric_urls               = undef,
+  Optional[String[1]] $etcd_user                          = undef,
   Optional[String] $etcd_ca_key                           = undef,
   Optional[String] $etcd_ca_crt                           = undef,
   Optional[String] $etcdclient_key                        = undef,

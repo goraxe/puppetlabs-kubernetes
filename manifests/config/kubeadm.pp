@@ -113,6 +113,9 @@
 # @param etcd_listen_metric_urls
 #   The URL(s) to listen on to respond to /metrics and /health for etcd
 #   Defaults to undef
+# @param etcd_user
+#   Run etcd as this system user instead of root (wget install method only)
+#   Defaults to undef
 # @param token
 #   A string to use when joining nodes to the cluster. Must be in the form of '[a-z0-9]{6}.[a-z0-9]{16}'
 #   Defaults to undef
@@ -270,6 +273,7 @@ class kubernetes::config::kubeadm (
   Integer $etcd_max_wals = $kubernetes::etcd_max_wals,
   Integer $etcd_max_request_bytes = $kubernetes::etcd_max_request_bytes,
   Optional[String] $etcd_listen_metric_urls = $kubernetes::etcd_listen_metric_urls,
+  Optional[String[1]] $etcd_user = $kubernetes::etcd_user,
   String $token = $kubernetes::token,
   String $ttl_duration = $kubernetes::ttl_duration,
   String $discovery_token_hash = $kubernetes::discovery_token_hash,
@@ -338,6 +342,22 @@ class kubernetes::config::kubeadm (
       }
     }
     if $etcd_install_method == 'wget' {
+      if $etcd_user {
+        group { $etcd_user:
+          ensure => present,
+          system => true,
+        }
+        user { $etcd_user:
+          ensure     => present,
+          system     => true,
+          gid        => $etcd_user,
+          home       => $etcd_data_dir,
+          managehome => false,
+          shell      => '/usr/sbin/nologin',
+          comment    => 'etcd',
+          before     => File['/etc/systemd/system/etcd.service'],
+        }
+      }
       file { '/etc/systemd/system/etcd.service':
         ensure  => file,
         content => template('kubernetes/etcd/etcd.service.erb'),
