@@ -243,6 +243,8 @@
 #   User=/Group=, systemd hands etcd its certificates and keys with
 #   LoadCredential= (so the files under /etc/kubernetes/pki/etcd stay
 #   root-only), and each start first chowns etcd_data_dir to the user.
+#   etcd then sees certificates only as copied at start: a changed
+#   certificate or key restarts etcd (on every controller, for the CA).
 #   Defaults to undef (root)
 #
 # [*etcd_ca_key*]
